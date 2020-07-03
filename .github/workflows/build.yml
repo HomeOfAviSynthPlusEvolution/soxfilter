@@ -1,0 +1,59 @@
+name: Build SoxFilter
+
+on: [push, pull_request]
+
+jobs:
+  build-win32:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: checkout sox
+      run: |
+        git clone https://git.code.sf.net/p/sox/code sox-code
+        sed -i /LN/d sox-code/src/CMakeLists.txt
+
+    - name: build sox
+      run: |
+        cmake -S sox-code -B sox-build/x86 -A Win32
+        cmake --build sox-build/x86 --config Release -j 2
+    - name: copy libs
+      shell: bash
+      run: |
+        shopt -s globstar
+        mkdir -p filter-build/x86
+        cp sox-build/**/Release/*.lib filter-build/x86/
+
+    - name: build filter
+      run: |
+        cmake -S . -B filter-build/x86 -A Win32
+        cmake --build filter-build/x86 --config Release -j 2
+
+    - name: pack filter
+      shell: bash
+      run: |
+        mkdir pkg
+        cp filter-build/x86/*.lib pkg
+        cp filter-build/x86/Release/soxfilter.dll pkg
+
+    - uses: actions/upload-artifact@v1
+      id: upload_artifact
+      with:
+        path: ./pkg
+        name: SoxFilter-${{ github.sha }}
+  # build-win64:
+  #   runs-on: windows-latest
+  #   steps:
+  #   - uses: actions/checkout@v2
+  #   - name: configure
+  #     run: cmake -S . -B filter-build/x64 -A x64
+  #   - name: build
+  #     run: cmake --build filter-build/x64 --config Release -j 2
+  # build-ubuntu:
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #   - uses: actions/checkout@v2
+  #   - name: configure
+  #     run: cmake -S . -B filter-build/x64
+  #   - name: build
+  #     run: cmake --build filter-build/x64 --config Release -j 2
